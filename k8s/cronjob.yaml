@@ -1,0 +1,65 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: azad-app-checker
+  namespace: monitoring
+spec:
+  schedule: "0 */6 * * *"
+  concurrencyPolicy: Replace
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: azad-app-checker
+            image: azad-app-checker:latest
+            imagePullPolicy: Always
+            env:
+            - name: CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: azad-credentials
+                  key: client-id
+            - name: CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: azad-credentials
+                  key: client-secret
+            - name: TENANT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: azad-credentials
+                  key: tenant-id
+            - name: TARGET_IDS
+              valueFrom:
+                configMapKeyRef:
+                  name: azad-app-monitor-config
+                  key: target-ids
+            - name: PUSHGATEWAY_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: azad-app-monitor-config
+                  key: pushgateway-url
+          restartPolicy: OnFailure
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: azad-credentials
+  namespace: monitoring
+type: Opaque
+data:
+  client-id: <base64-encoded-client-id>
+  client-secret: <base64-encoded-client-secret>
+  tenant-id: <base64-encoded-tenant-id>
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: azad-app-monitor-config
+  namespace: monitoring
+data:
+  target-ids: "app-id-1,app-id-2"
+  pushgateway-url: "http://prometheus-pushgateway.monitoring:9091"
